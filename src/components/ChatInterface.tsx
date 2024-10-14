@@ -5,11 +5,15 @@ import { Send } from 'lucide-react'
 import LanguageSelector from '@/components/LanguageSelector'
 import { useTranslation } from '@/hooks/useTranslation'
 import MessageBubble from '@/components/MessageBubble'
+import socket from '@/lib/socket'
 
 interface Message {
   id: string
-  text: string
-  sender: string
+  content: string
+  sender: {
+    id: number
+    username: string
+  }
   language: string
   timestamp: Date
   translatedText?: string
@@ -23,6 +27,23 @@ export default function ChatInterface() {
   const { t } = useTranslation(selectedLanguage)
 
   useEffect(() => {
+    // Join a room (you'll need to implement room selection)
+    const roomId = '1' // Example room ID
+    socket.emit('join_room', roomId)
+
+    // Listen for new messages
+    socket.on('receive_message', (message: Message) => {
+      console.log('Received message:', message);
+      setMessages(prevMessages => [...prevMessages, message])
+    })
+
+    return () => {
+      socket.off('receive_message')
+      socket.emit('leave_room', roomId)
+    }
+  }, [])
+
+  useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight
     }
@@ -32,13 +53,17 @@ export default function ChatInterface() {
     if (inputMessage.trim()) {
       const newMessage: Message = {
         id: Date.now().toString(),
-        text: inputMessage,
-        sender: 'You',
+        content: inputMessage,
+        sender: {
+          id: 0, // You might want to replace this with the actual user ID
+          username: 'You'
+        },
         language: selectedLanguage,
         timestamp: new Date(),
-        translatedText: 'This is a placeholder for translated text' // This should be replaced with actual translation
       }
-      setMessages([...messages, newMessage])
+      console.log('Sending message:', newMessage);
+      socket.emit('send_message', newMessage)
+      setMessages(prevMessages => [...prevMessages, newMessage]); // Add this line
       setInputMessage('')
     }
   }
